@@ -41,8 +41,8 @@ services:
     links:
       - db:database
     environment:
-        ETHEREUM_JSONRPC_HTTP_URL: https://vercel-blockchain-proxy.vercel.app/
-        ETHEREUM_JSONRPC_TRACE_URL: https://vercel-blockchain-proxy.vercel.app/
+        ETHEREUM_JSONRPC_HTTP_URL: http://129.154.245.79:8545/
+        ETHEREUM_JSONRPC_TRACE_URL: http://129.154.245.79:8545/
         ETHEREUM_JSONRPC_WS_URL: ws://129.154.245.79:8546/
         CHAIN_ID: '148460'
 
