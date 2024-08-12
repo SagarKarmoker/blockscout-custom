@@ -3,6 +3,7 @@ FROM hexpm/elixir:1.16.3-erlang-26.2.5.1-alpine-3.18.7 AS builder
 WORKDIR /app
 
 ENV MIX_ENV="prod"
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 RUN apk --no-cache --update add alpine-sdk gmp-dev automake libtool inotify-tools autoconf python3 file gcompat
 
