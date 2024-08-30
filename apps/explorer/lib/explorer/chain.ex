@@ -1638,7 +1638,7 @@ defmodule Explorer.Chain do
   end
 
   defp block_from_cache(block_type, paging_options, necessity_by_association, options) do
-    case Blocks.take_enough(paging_options.page_size) do
+    case Blocks.atomic_take_enough(paging_options.page_size) do
       nil ->
         elements = fetch_blocks(block_type, paging_options, necessity_by_association, options)
 
@@ -1652,7 +1652,7 @@ defmodule Explorer.Chain do
   end
 
   def uncles_from_cache(block_type, paging_options, necessity_by_association, options) do
-    case Uncles.take_enough(paging_options.page_size) do
+    case Uncles.atomic_take_enough(paging_options.page_size) do
       nil ->
         elements = fetch_blocks(block_type, paging_options, necessity_by_association, options)
 
@@ -2620,7 +2620,7 @@ defmodule Explorer.Chain do
       if is_nil(paging_options.key) or paging_options.page_number == 1 do
         paging_options.page_size
         |> Kernel.+(1)
-        |> Transactions.take_enough()
+        |> Transactions.atomic_take_enough()
         |> case do
           nil ->
             transactions = fetch_recent_collated_transactions_for_rap(paging_options, necessity_by_association)
@@ -2738,19 +2738,23 @@ defmodule Explorer.Chain do
     |> select_repo(options).all()
   end
 
+  @doc """
+  Query to return all pending transactions
+  """
+  @spec pending_transactions_query(Ecto.Queryable.t()) :: Ecto.Queryable.t()
   def pending_transactions_query(query) do
     from(transaction in query,
       where: is_nil(transaction.block_hash) and (is_nil(transaction.error) or transaction.error != "dropped/replaced")
     )
   end
 
+  @doc """
+  Returns pending transactions list from the DB
+  """
+  @spec pending_transactions_list() :: Ecto.Schema.t() | term()
   def pending_transactions_list do
-    query =
-      from(transaction in Transaction,
-        where: is_nil(transaction.block_hash) and (is_nil(transaction.error) or transaction.error != "dropped/replaced")
-      )
-
-    query
+    Transaction
+    |> pending_transactions_query()
     |> Repo.all(timeout: :infinity)
   end
 
@@ -3877,13 +3881,17 @@ defmodule Explorer.Chain do
       |> Enum.uniq()
 
     if Enum.empty?(filters) do
-      {:ok, []}
+      {0, []}
     else
       query =
         filters
         |> Enum.reduce(Transaction, fn {nonce, from_address}, query ->
           from(t in query,
-            or_where: t.nonce == ^nonce and t.from_address_hash == ^from_address and is_nil(t.block_hash)
+            or_where:
+              t.nonce == ^nonce and
+                t.from_address_hash == ^from_address and
+                is_nil(t.block_hash) and
+                (is_nil(t.error) or t.error != "dropped/replaced")
           )
         end)
         # Enforce Transaction ShareLocks order (see docs: sharelocks.md)
